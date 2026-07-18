@@ -165,8 +165,11 @@ export default function Home() {
     if (stored) {
       try {
         const saved: Player[] = JSON.parse(stored);
-        setPlayers(saved);
-        setSelectedIds(new Set(saved.map((p) => p.id)));
+        const legacyDemoList = saved.length > 0 && saved.every((player) => player.id.startsWith("starter-"));
+        const playerList = legacyDemoList ? starterPlayers : saved;
+        setPlayers(playerList);
+        setSelectedIds(new Set(playerList.map((p) => p.id)));
+        if (legacyDemoList) localStorage.setItem(PLAYER_KEY, JSON.stringify(starterPlayers));
       } catch { /* keep starter list */ }
     }
   }, []);

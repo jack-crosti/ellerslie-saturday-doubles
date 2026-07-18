@@ -1,0 +1,9 @@
+{
+  "name": "Ellerslie Saturday Doubles",
+  "short_name": "Saturday Doubles",
+  "description": "Saturday doubles organiser for Ellerslie Tennis Club.",
+  "start_url": "/ellerslie-saturday-doubles/",
+  "display": "standalone",
+  "background_color": "#052c24",
+  "theme_color": "#073d31"
+}

@@ -2,7 +2,7 @@
 
 import "./styles.css";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 type Player = { id: string; name: string; skill: number };
 type Team = [Player, Player];
@@ -10,6 +10,7 @@ type Court = { court: number; teamA: Team; teamB: Team };
 type Round = { number: number; courts: Court[]; waiting: Player[] };
 
 const PLAYER_KEY = "saturday-doubles-players-v1";
+const INTRO_KEY = "ellerslie-intro-seen-v1";
 const DEFAULT_MINUTES = 25;
 
 const starterPlayers: Player[] = [
@@ -155,7 +156,9 @@ export default function Home() {
   const [seconds, setSeconds] = useState(DEFAULT_MINUTES * 60);
   const [running, setRunning] = useState(false);
   const [search, setSearch] = useState("");
-  const [modal, setModal] = useState<"add" | "manage" | null>(null);
+  const [modal, setModal] = useState<"add" | "manage" | "guide" | null>(null);
+  const [showIntro, setShowIntro] = useState(false);
+  const audioContextRef = useRef<AudioContext | null>(null);
   const [newName, setNewName] = useState("");
   const [newSkill, setNewSkill] = useState(3);
   const [toast, setToast] = useState("");
@@ -179,10 +182,22 @@ export default function Home() {
   }, [players]);
 
   useEffect(() => {
+    if (!localStorage.getItem(INTRO_KEY)) setShowIntro(true);
+  }, []);
+
+  useEffect(() => {
+    if (!showIntro) return;
+    const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const timeout = window.setTimeout(() => dismissIntro(), reducedMotion ? 1400 : 4200);
+    return () => window.clearTimeout(timeout);
+  }, [showIntro]);
+
+  useEffect(() => {
     if (!running) return;
     const timer = window.setInterval(() => setSeconds((value) => {
       if (value <= 1) {
         setRunning(false);
+        ringBell();
         setToast("Round time is up");
         return 0;
       }
@@ -205,6 +220,61 @@ export default function Home() {
     [...history, ...(currentRound ? [currentRound] : [])].forEach((round) => round.courts.flatMap((court) => [...court.teamA, ...court.teamB]).forEach((p) => counts.set(p.id, (counts.get(p.id) ?? 0) + 1)));
     return counts;
   }, [history, currentRound]);
+
+  function getAudioContext() {
+    if (!audioContextRef.current) audioContextRef.current = new AudioContext();
+    return audioContextRef.current;
+  }
+
+  function primeBell() {
+    try {
+      const context = getAudioContext();
+      if (context.state === "suspended") void context.resume();
+      const oscillator = context.createOscillator();
+      const gain = context.createGain();
+      gain.gain.value = 0.0001;
+      oscillator.connect(gain).connect(context.destination);
+      oscillator.start();
+      oscillator.stop(context.currentTime + 0.02);
+    } catch { /* audio is optional on unsupported browsers */ }
+  }
+
+  function ringBell() {
+    try {
+      const context = getAudioContext();
+      if (context.state === "suspended") void context.resume();
+      const now = context.currentTime;
+      [0, 0.22, 0.48].forEach((delay, strike) => {
+        [1, 1.5, 2.04].forEach((ratio, harmonic) => {
+          const oscillator = context.createOscillator();
+          const gain = context.createGain();
+          const start = now + delay;
+          oscillator.type = harmonic === 0 ? "sine" : "triangle";
+          oscillator.frequency.setValueAtTime((strike === 2 ? 988 : 880) * ratio, start);
+          gain.gain.setValueAtTime(0.0001, start);
+          gain.gain.exponentialRampToValueAtTime(0.34 / (harmonic + 1), start + 0.015);
+          gain.gain.exponentialRampToValueAtTime(0.0001, start + 1.25 + harmonic * 0.2);
+          oscillator.connect(gain).connect(context.destination);
+          oscillator.start(start);
+          oscillator.stop(start + 1.55 + harmonic * 0.2);
+        });
+      });
+      if ("vibrate" in navigator) navigator.vibrate([280, 120, 280]);
+      setToast("Bell test");
+    } catch {
+      setToast("Turn your device volume on");
+    }
+  }
+
+  function dismissIntro() {
+    localStorage.setItem(INTRO_KEY, "1");
+    setShowIntro(false);
+  }
+
+  function replayIntro() {
+    setModal(null);
+    window.setTimeout(() => setShowIntro(true), 180);
+  }
 
   function togglePlayer(id: string) {
     setSelectedIds((current) => {
@@ -231,6 +301,7 @@ export default function Home() {
   }
 
   function startSession() {
+    primeBell();
     if (selectedPlayers.length < 4) {
       setToast("Select at least four players");
       return;
@@ -280,7 +351,10 @@ export default function Home() {
       <header className="topbar">
         <div className="brand"><div className="ball-logo"><i /><i /></div><div><h1>Ellerslie Tennis Club</h1><p>Saturday Doubles</p></div></div>
         <div className="session-meta"><span className="eyebrow">SATURDAY SESSION</span><b>{session ? `Round ${currentRound?.number ?? roundCount} of ${roundCount}` : "Session setup"}</b><small>{matchMinutes} min · {roundCount} rounds · 3 courts</small></div>
-        <button className="outline-button" type="button" onClick={() => setModal("manage")}>Manage players</button>
+        <div className="header-actions">
+          <button className="guide-button" type="button" onClick={() => setModal("guide")}>Guide</button>
+          <button className="outline-button" type="button" onClick={() => setModal("manage")}>Manage players</button>
+        </div>
       </header>
 
       {!session ? (
@@ -347,12 +421,39 @@ export default function Home() {
           <label>Skill level<Rating value={newSkill} onChange={setNewSkill} /></label>
           <div className="skill-scale"><span>1 · Beginner</span><span>5 · Advanced</span></div>
           <button className="primary-button full" type="button" onClick={addPlayer}>Save and select player</button>
-        </> : <>
+        </> : modal === "manage" ? <>
           <span className="eyebrow dark">PLAYER REGISTER</span><h2 id="modal-title">Manage players</h2>
+          <div className="rating-guide">
+            <div><b>Skill level</b><span>Use the player&apos;s current doubles level.</span></div>
+            <div className="rating-key"><span><i>1</i> Beginner</span><span><i>3</i> Intermediate</span><span><i>5</i> Advanced</span></div>
+          </div>
           <div className="manage-list">{players.map((player) => <PlayerRow key={player.id} player={player} onSkill={(value) => updateSkill(player.id, value)} onRemove={() => { setPlayers((current) => current.filter((p) => p.id !== player.id)); setSelectedIds((current) => { const next = new Set(current); next.delete(player.id); return next; }); }} />)}</div>
           <button className="primary-button full" type="button" onClick={() => setModal("add")}>Add another player</button>
+        </> : <>
+          <span className="eyebrow dark">QUICK GUIDE</span><h2 id="modal-title">Saturday Doubles</h2>
+          <div className="guide-steps">
+            <div><b>1</b><p><strong>Choose players</strong><span>Select today&apos;s attendance and check each skill level.</span></p></div>
+            <div><b>2</b><p><strong>Set the session</strong><span>Choose match time and the number of rounds.</span></p></div>
+            <div><b>3</b><p><strong>Create matches</strong><span>The app balances courts and rotates waiting players.</span></p></div>
+            <div><b>4</b><p><strong>Finish each round</strong><span>The bell rings, then create the next round.</span></p></div>
+          </div>
+          <div className="sound-note"><span>♪</span><p><b>Round bell</b>Keep the app open and your device volume turned up.</p></div>
+          <div className="guide-actions">
+            <button className="secondary-button" type="button" onClick={ringBell}>Test bell</button>
+            <button className="secondary-button" type="button" onClick={replayIntro}>Replay intro</button>
+          </div>
         </>}
       </section></div>}
+      {showIntro && <div className="intro-screen" role="dialog" aria-label="Welcome to Ellerslie Saturday Doubles">
+        <div className="intro-court" aria-hidden="true"><i /><i /><i /></div>
+        <div className="cinematic-ball" aria-hidden="true"><i /><i /></div>
+        <div className="intro-lockup">
+          <span>ELLERSLIE TENNIS CLUB</span>
+          <h2>Saturday Doubles</h2>
+          <p>Courts ready.</p>
+        </div>
+        <button type="button" onClick={dismissIntro}>Skip</button>
+      </div>}
       {toast && <div className="toast">{toast}</div>}
     </main>
   );

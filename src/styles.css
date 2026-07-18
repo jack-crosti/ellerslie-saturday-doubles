@@ -111,3 +111,8 @@ button:focus-visible, input:focus-visible { outline: 3px solid #99b2ff; outline-
   .cinematic-ball{width:84px;height:84px;margin:-42px}
   .intro-lockup h2{font-size:43px}
 }
+
+@media(prefers-reduced-motion:reduce){
+  .intro-lockup{opacity:1;transform:none}
+  .cinematic-ball{opacity:0}
+}

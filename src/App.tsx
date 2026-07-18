@@ -158,6 +158,7 @@ export default function Home() {
   const [search, setSearch] = useState("");
   const [modal, setModal] = useState<"add" | "manage" | "guide" | null>(null);
   const [showIntro, setShowIntro] = useState(false);
+  const [introReady, setIntroReady] = useState(false);
   const audioContextRef = useRef<AudioContext | null>(null);
   const [newName, setNewName] = useState("");
   const [newSkill, setNewSkill] = useState(3);
@@ -187,8 +188,9 @@ export default function Home() {
 
   useEffect(() => {
     if (!showIntro) return;
+    setIntroReady(false);
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    const timeout = window.setTimeout(() => dismissIntro(), reducedMotion ? 1400 : 4200);
+    const timeout = window.setTimeout(() => setIntroReady(true), reducedMotion ? 500 : 4750);
     return () => window.clearTimeout(timeout);
   }, [showIntro]);
 
@@ -273,6 +275,7 @@ export default function Home() {
 
   function replayIntro() {
     setModal(null);
+    setIntroReady(false);
     window.setTimeout(() => setShowIntro(true), 180);
   }
 
@@ -444,15 +447,28 @@ export default function Home() {
           </div>
         </>}
       </section></div>}
-      {showIntro && <div className="intro-screen" role="dialog" aria-label="Welcome to Ellerslie Saturday Doubles">
-        <div className="intro-court" aria-hidden="true"><i /><i /><i /></div>
-        <div className="cinematic-ball" aria-hidden="true"><i /><i /></div>
-        <div className="intro-lockup">
+      {showIntro && <div className={`intro-screen ${introReady ? "settled" : ""}`} role="dialog" aria-label="Welcome to Ellerslie Saturday Doubles">
+        <div className="intro-stage" aria-hidden="true">
+          <div className="intro-glow intro-glow-one" />
+          <div className="intro-glow intro-glow-two" />
+          <div className="intro-court"><i /><i /><i /></div>
+          <div className="ball-flight">
+            <span className="ball-shadow" />
+            <div className="cinematic-ball"><i /><i /></div>
+          </div>
+        </div>
+        <div className={`intro-welcome ${introReady ? "ready" : ""}`}>
           <span>ELLERSLIE TENNIS CLUB</span>
           <h2>Saturday Doubles</h2>
-          <p>Courts ready.</p>
+          <p>Balanced matches, fair court time and simple rotations across three courts.</p>
+          <div className="intro-mini-guide">
+            <div><b>1</b><span>Select today&apos;s players</span></div>
+            <div><b>2</b><span>Set match time and rounds</span></div>
+            <div><b>3</b><span>Finish each round to rotate</span></div>
+          </div>
+          <button className="intro-enter" type="button" onClick={dismissIntro}>Enter the courts <span>→</span></button>
         </div>
-        <button type="button" onClick={dismissIntro}>Skip</button>
+        <button className="intro-skip" type="button" onClick={dismissIntro}>Skip</button>
       </div>}
       {toast && <div className="toast">{toast}</div>}
     </main>

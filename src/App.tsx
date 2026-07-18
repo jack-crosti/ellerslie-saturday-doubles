@@ -13,11 +13,13 @@ const PLAYER_KEY = "saturday-doubles-players-v1";
 const DEFAULT_MINUTES = 25;
 
 const starterPlayers: Player[] = [
-  ["James Wilson", 4], ["Sarah Lee", 3], ["Rob Patel", 4], ["Kate Liu", 3],
-  ["Michael Turner", 3], ["Amy Lawson", 4], ["David Cook", 4], ["Emma Morgan", 3],
-  ["Josh Smith", 3], ["Lucy Brown", 4], ["George Dean", 3], ["Nicole Harris", 4],
-  ["Ben Stewart", 3], ["Hannah Clarke", 3],
-].map(([name, skill], index) => ({ id: `starter-${index}`, name: String(name), skill: Number(skill) }));
+  ["Amanda", 3], ["Andre", 5], ["Ben", 3], ["Binh", 2],
+  ["Brett", 3], ["Cathy", 2], ["Christina", 2], ["England", 3],
+  ["Jack", 2], ["Julian", 3], ["Kana", 2], ["Kayoko", 2],
+  ["Kevin", 3], ["Mel", 3], ["Nick", 3], ["Rob", 3],
+  ["Ruth", 2], ["Tim", 4], ["Tom", 4], ["Vivek", 3],
+  ["Yulong", 4],
+].map(([name, skill], index) => ({ id: `club-${index}`, name: String(name), skill: Number(skill) }));
 
 function initials(name: string) {
   return name.split(/\s+/).map((word) => word[0]).join("").slice(0, 2).toUpperCase();

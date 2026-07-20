@@ -10,6 +10,7 @@ type Court = { court: number; teamA: Team; teamB: Team };
 type Round = { number: number; courts: Court[]; waiting: Player[] };
 
 const PLAYER_KEY = "saturday-doubles-players-v1";
+const ROSTER_VERSION_KEY = "saturday-doubles-roster-version";
 const INTRO_KEY = "ellerslie-intro-seen-v1";
 const DEFAULT_MINUTES = 25;
 
@@ -20,7 +21,11 @@ const starterPlayers: Player[] = [
   ["Kevin", 3], ["Mel", 3], ["Nick", 3], ["Rob", 3],
   ["Ruth", 2], ["Tim", 4], ["Tom", 4], ["Vivek", 3],
   ["Yulong", 4],
-].map(([name, skill], index) => ({ id: `club-${index}`, name: String(name), skill: Number(skill) }));
+  ["Alma", 2], ["Kayo", 2],
+].map(([name, skill], index) => ({ id: `club-${index}`, name: String(name), skill: Number(skill) }))
+  .sort((a, b) => a.name.localeCompare(b.name));
+
+const rosterAdditions = starterPlayers.filter((player) => ["Alma", "Kayo"].includes(player.name));
 
 function initials(name: string) {
   return name.split(/\s+/).map((word) => word[0]).join("").slice(0, 2).toUpperCase();
@@ -170,12 +175,19 @@ export default function Home() {
       try {
         const saved: Player[] = JSON.parse(stored);
         const legacyDemoList = saved.length > 0 && saved.every((player) => player.id.startsWith("starter-"));
-        const playerList = legacyDemoList ? starterPlayers : saved;
+        const needsRosterUpdate = localStorage.getItem(ROSTER_VERSION_KEY) !== "2";
+        const additions = needsRosterUpdate
+          ? rosterAdditions.filter((newPlayer) => !saved.some((player) => player.name.toLowerCase() === newPlayer.name.toLowerCase()))
+          : [];
+        const playerList = legacyDemoList
+          ? starterPlayers
+          : [...saved, ...additions].sort((a, b) => a.name.localeCompare(b.name));
         setPlayers(playerList);
         setSelectedIds(new Set(playerList.map((p) => p.id)));
-        if (legacyDemoList) localStorage.setItem(PLAYER_KEY, JSON.stringify(starterPlayers));
+        if (legacyDemoList || additions.length) localStorage.setItem(PLAYER_KEY, JSON.stringify(playerList));
       } catch { /* keep starter list */ }
     }
+    localStorage.setItem(ROSTER_VERSION_KEY, "2");
   }, []);
 
   useEffect(() => {
